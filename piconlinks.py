@@ -166,6 +166,8 @@ class PIcons(Channels):
 
     def __init__(self, channels_conf = '/etc/vdr/channels.conf', tvonly = False,
         provider_name = None, picons_dir = './picons'):
+
+	self.piconsDir = picons_dir
         # Initialize superclass
         super(PIcons, self).__init__(channels_conf = channels_conf,
             tvonly = tvonly, provider_name = provider_name)
@@ -185,7 +187,8 @@ class PIcons(Channels):
         # Eliminate existing symlinks.
         def nosymlink(x):
             return not os.path.islink(os.path.join(picons_dir, x))
-        piconDirList = filter(nosymlink, piconDirList)
+        
+	piconDirList = filter(nosymlink, piconDirList)
 
         if piconDirList == []:
             # Empty directory or no '.png' files
@@ -197,7 +200,8 @@ class PIcons(Channels):
     def lnscript(self):
         """ Finally, create mapping between picon and serviceref.
             Return the result in form of a shell script. """
-        
+
+        print '#!/bin/bash'
         links = dict()
         unmatched = []
 
@@ -207,9 +211,6 @@ class PIcons(Channels):
         # Find matches (sorted by simplenames)
         for (channelName, simpleName) in (
             sorted(simpleNames.iteritems(), key=lambda (k,v): (v,k))):
-            if simpleName in self.picons:
-                links[simpleName] = (channelName, serviceRefs[channelName])
-                continue
             unmatched.append(channelName)
 
         # Print out shell script
@@ -219,15 +220,22 @@ class PIcons(Channels):
         for (src, dst) in sorted(links.iteritems()):
             (channelName, serviceRef) = dst
             print '# %s' % channelName
-            print 'ln -s %s.png %s.png' % (src, serviceRef)
+            print 'ln -s %s.png %s.png' % (src, channelName.replace(",",";").split(';')[0].replace(" ","\\ "))
         
         # Print unmatched
         if unmatched != []:
-            print '# unmatched channels:'
+	   print '# create symbolic links'
 
         for channelName in unmatched:
-            print '# ln -s [%s] %s.png' % (
-                channelName, serviceRefs[channelName])
+	    try:
+	        fileLink = os.readlink('%s/%s.png' % (self.piconsDir,serviceRefs[channelName]),)
+                """print 'File: %s' % fileLink"""
+		print 'ln -s %s %s.png' % (fileLink, channelName.replace(",",";").split(';')[0].replace(" ","\\ ").replace("(","\(").replace(")","\)"))
+	    except:
+	        print '#File: %s not found' % channelName
+		       
+            """print '# ln -s [%s] %s.png' % (
+                channelName, serviceRefs[channelName])"""
 
 
 def main():
